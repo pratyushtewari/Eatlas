@@ -312,8 +312,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rb: {fileID: 962477322}
   angleRate: 5
-  factor: 15
-  friction: 20
+  dragSpeedFactor: 830
+  rotationMultiplier: 50
 --- !u!135 &962477318
 SphereCollider:
   m_ObjectHideFlags: 0

@@ -5,38 +5,48 @@ using UnityEngine;
 public class RotateGlobe : MonoBehaviour
 {
     public Rigidbody rb;
+    // Amount of the degrees the globle rotate per frame
     public float angleRate = 5f;
-    public float dragSpeedFactor = 1000;
-    private float angleRateOrig;
-    public float rotationMultiplier = 15.0f;
+    private float angleRateOrig = 5f;
+    // If the mouse is being dragged then this determines 
+    // how much to rotate the globe with the length of the drag
+    public float dragSpeedFactor = 830;
+    // Multipler to determine amount of angle to rotate with the speed of the swipe
+    public float rotationMultiplier = 50.0f;
     private float startTime;
     private Vector3 startPos;
-    private bool isGlobePushed = false;
     private float dragForce = 0f;
-    // Start is called before the first frame update
-    void Start()
-    {
-        angleRateOrig = angleRate;
-       
-    }
+
+    // This is the coroutine holder for the rotation swipe
+    private IEnumerator coroutine;
+    bool CR_Running = false;
+    // 1 for left to right and -1 for right to left.
+    float direction = 1;
 
     // Update is called once per frame
     void Update()
     {
         // Rotate this at angleRate per second
-       transform.Rotate(Vector3.down * angleRate / 100 ); 
+       transform.Rotate(direction * Vector3.down * angleRate / 100 ); 
 
        // Make the skybox rotate with the globe slower than the globe
-       RenderSettings.skybox.SetFloat("_Rotation",  angleRate*Time.time/1000);
+       RenderSettings.skybox.SetFloat("_Rotation",  direction * angleRate*Time.time/1000);
     }
 
     void OnMouseDrag() {
-        float rotY = Input.GetAxis("Mouse X")*dragSpeedFactor*Mathf.Deg2Rad;
-        transform.Rotate(Vector3.down, rotY);
+        float rotAroundY = Input.GetAxis("Mouse X")*dragSpeedFactor*Mathf.Deg2Rad;
+        transform.Rotate(Vector3.down, rotAroundY);
+        // Make the skybox rotate with the globe slower than the globe - NOT WORKING
+        // RenderSettings.skybox.SetFloat("_Rotation",  rotY*1000);
         
     }
     
     void OnMouseDown() {
+        // Stop the coroutine if running
+        if (CR_Running && coroutine != null) {
+            StopCoroutine(coroutine);
+            angleRate = 0;
+        }
         angleRate = 0;
         startTime = Time.time;
         startPos = Input.mousePosition;
@@ -45,35 +55,54 @@ public class RotateGlobe : MonoBehaviour
     }
     
     void OnMouseUp() {
+        // Stop the coroutine if running
+        if (CR_Running && coroutine != null) {
+            StopCoroutine(coroutine);
+        }
+        angleRate = 0;
         var endPos = Input.mousePosition;
         endPos.z = transform.position.z - Camera.main.transform.position.z;
         endPos = Camera.main.ScreenToWorldPoint(endPos);
-        var force = endPos - startPos;
-        force.z = force.magnitude;
-        force /= (Time.time - startTime);
+        var dragLength = endPos - startPos;
+        Debug.Log("startPos: " + startPos);
+        Debug.Log("endPos: " + endPos);
+
+        Debug.Log(">>>> Force Manitude: " + dragLength.magnitude);
+        // if (force <= 0 ) {
+        //     // that means you might have swiped from right to left.
+        // }
         
-        // angleRate = force.magnitude * factor;
-        dragForce = force.magnitude;
-        if (dragForce > 5) {
+        float dragSpeed = dragLength.magnitude / (Time.time - startTime);
+        if (dragLength.x < 0) {
+            // spin reverse
+            direction = -1; 
+        } else {
+            direction = 1;
+        }
+
+        if (dragSpeed > 5) {
             //isGlobePushed = true;    
-            angleRate = force.magnitude * rotationMultiplier;
-            Debug.Log("globe was swiped = " + dragForce);
-            StartCoroutine(loseLifeOvertime(angleRate, angleRate, 2));
+            angleRate = dragSpeed * rotationMultiplier;
+            Debug.Log("globe was swiped = " + dragSpeed);
+            float timetoStop = dragSpeed / 10;
+            coroutine = loseLifeOvertime(angleRate, angleRate, timetoStop);
+            StartCoroutine(coroutine);
 
         } else {
-            Debug.Log("globe was dragged to a stop = " + dragForce);
+            // Stop the coroutine if running
+            if (CR_Running && coroutine != null) {
+                StopCoroutine(coroutine);
+            }
+            angleRate = 0;
+            Debug.Log("globe was dragged to a stop = " + dragSpeed);
         }
     }
 
     // make the rotation angle linearly come to 0 in "duration" seconds
     IEnumerator loseLifeOvertime(float currentLife, float lifeToLose, float duration)
     {
-        //Make sure there is only one instance of this function running
-        if (isGlobePushed)
-        {
-            yield break; ///exit if this is still running
-        }
-        isGlobePushed = true;
+
+        CR_Running = true;
 
         float counter = 0;
 
@@ -94,62 +123,6 @@ public class RotateGlobe : MonoBehaviour
             angleRate = newPlayerLife;
             yield return null;
         }
-
-        isGlobePushed = false;
+        CR_Running = false;
     }
-
-    // //inside class
-    // Vector2 firstPressPos;
-    // Vector2 secondPressPos;
-    // Vector2 currentSwipe;
-
-    // public void Swipe()
-    // {
-    //     if(Input.touches.Length > 0)
-    //     {
-    //         Touch t = Input.GetTouch(0);
-
-    //         if(t.phase == TouchPhase.Began)
-    //         {
-    //             //save began touch 2d point
-    //             firstPressPos = new Vector2(t.position.x,t.position.y);
-    //         }
-
-    //         if(t.phase == TouchPhase.Ended)
-    //         {
-    //             //save ended touch 2d point
-    //             secondPressPos = new Vector2(t.position.x,t.position.y);
-
-    //             //create vector from the two points
-    //             currentSwipe = new Vector3(secondPressPos.x - firstPressPos.x, secondPressPos.y - firstPressPos.y);
-
-    //             //normalize the 2d vector
-    //             currentSwipe.Normalize();
-
-    //             //swipe upwards
-    //             if(currentSwipe.y > 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
-    //             {
-    //                 Debug.Log("up swipe");
-    //             }
-
-    //             //swipe down
-    //             if(currentSwipe.y < 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
-    //             {
-    //                 Debug.Log("down swipe");
-    //             }
-
-    //             //swipe left
-    //             if(currentSwipe.x < 0 && currentSwipe.y > -0.5f &&  currentSwipe.y < 0.5f)
-    //             {
-    //                 Debug.Log("left swipe");
-    //             }
-
-    //             //swipe right
-    //             if(currentSwipe.x > 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
-    //             {
-    //                 Debug.Log("right swipe");
-    //             }
-    //         }
-    //     }
-    // }
 }
